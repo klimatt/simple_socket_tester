@@ -21,3 +21,6 @@ Example command:
 ```sh
  cargo run --release -- -i 192.168.1.10 -p 1234 -m 900 -d 300 -c 200 -r 10 -w 10
 ```
+Output:
+
+![](show.gif)
