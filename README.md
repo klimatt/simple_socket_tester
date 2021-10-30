@@ -1,5 +1,6 @@
 # Simple_Socket_Tester
 Generating random packets, sending them to the server and checking the response.
+Was developed for testing sockets on stm32H743zi: [stm32H743ZI-playground](https://github.com/klimatt/stm32H743ZI-playground).
 The server must echo all incoming data.
 Currently, only TCP sockets are supported.
 ```sh
