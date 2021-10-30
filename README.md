@@ -1,7 +1,7 @@
 # Simple_Socket_Tester
 Generating random packets, sending them to the server and checking the response.
 The server must echo all incoming data.
-Currently only TCP sockets are supported.
+Currently, only TCP sockets are supported.
 ```sh
 simple_socket_tester 0.1.0
 USAGE:
