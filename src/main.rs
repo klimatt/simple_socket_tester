@@ -1,4 +1,4 @@
-#[deny(warnings)]
+#![deny(warnings)]
 
 use clap::{App, Arg};
 use rand::distributions::Alphanumeric;
@@ -8,6 +8,9 @@ use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::thread;
 use std::time::{Duration, Instant};
 use termion::{color};
+
+mod average;
+use average::Average;
 
 fn main() {
     let matches = App::new("simple_socket_tester")
@@ -82,6 +85,8 @@ fn main() {
         .parse::<u64>()
         .expect("");
     let t = Instant::now();
+    let mut av_bandwidth = Average::<f64>::new(0f64);
+    let mut error_cnt: u32 = 0;
     loop {
         println!(
             "{}==============================================================================================",
@@ -127,6 +132,7 @@ fn main() {
                         if data.as_slice() == rand_string.as_bytes() {
                             let delta_time = Instant::now().saturating_duration_since(send_time).as_millis();
                             let bandwidth = (16_000 * rand_string.len() as u128) as f32 / (1_048_576 * delta_time) as f32;
+                            av_bandwidth.add(bandwidth as f64);
                             println!(
                                 "{}{:?} | {}Reply is ok!",
                                 color::Fg(color::Cyan),
@@ -142,6 +148,7 @@ fn main() {
                                 bandwidth
                             );
                         } else {
+                            error_cnt += 1;
                             println!(
                                 "{}{:?} | {} Unexpected reply: {}{:?}",
                                 color::Fg(color::Cyan),
@@ -153,6 +160,7 @@ fn main() {
                         }
                     }
                     Err(e) => {
+                        error_cnt += 1;
                         println!(
                             "{}{:?} | {}Failed to receive data: {}{}",
                             color::Fg(color::Cyan),
@@ -163,9 +171,28 @@ fn main() {
                         );
                     }
                 }
+                println!("{}********************GLOBAL INFO**********************",  color::Fg(color::Yellow));
+                println!(
+                    "{}{:?} | {}Average Bandwidth: {}{:.2} [Mbps]",
+                    color::Fg(color::Cyan),
+                    t.elapsed(),
+                    color::Fg(color::White),
+                    color::Fg(color::Magenta),
+                    av_bandwidth.get()
+                );
+                println!(
+                    "{}{:?} | {}Error Counter: {}{}",
+                    color::Fg(color::Cyan),
+                    t.elapsed(),
+                    color::Fg(color::White),
+                    color::Fg(color::Red),
+                    error_cnt
+                );
+                println!("{}*****************************************************",  color::Fg(color::Yellow));
                 match stream.shutdown(Shutdown::Both){
                     Ok(_) => {}
                     Err(e) => {
+                        error_cnt += 1;
                         println!(
                             "{}{:?} | {}Stream shutdown error: {}{}",
                             color::Fg(color::Cyan),
@@ -178,6 +205,7 @@ fn main() {
                 }
             }
             Err(e) => {
+                error_cnt += 1;
                 println!(
                     "{}{:?} | {}Failed to connect: {}{}",
                     color::Fg(color::Cyan),
