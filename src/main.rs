@@ -1,4 +1,4 @@
-#![deny(warnings)]
+//#![deny(warnings)]
 
 use clap::{App, Arg};
 use rand::distributions::Alphanumeric;
@@ -7,7 +7,7 @@ use std::io::{Read, Write};
 use std::net::{Shutdown, TcpStream, ToSocketAddrs};
 use std::thread;
 use std::time::{Duration, Instant};
-use termion::{color};
+use termion::color;
 
 mod average;
 use average::Average;
@@ -17,7 +17,12 @@ fn main() {
         .version("0.1.0")
         .author("Matvei Klimov <klimatt.gu@gmail.com>")
         .about("Simple socket tester")
-        .arg(Arg::new("ip").short("i".parse().unwrap()).about("Ip Address").takes_value(true))
+        .arg(
+            Arg::new("ip")
+                .short("i".parse().unwrap())
+                .about("Ip Address")
+                .takes_value(true),
+        )
         .arg(
             Arg::new("port")
                 .short("p".parse().unwrap())
@@ -92,104 +97,131 @@ fn main() {
             "{}==============================================================================================",
             color::Fg(color::White),
         );
-        match TcpStream::connect_timeout(&((ip_addr.to_owned() + ":" + port).to_socket_addrs().unwrap().next().unwrap()), Duration::from_millis(connect_timeout)) {
-            Ok(mut stream) => {
-                println!(
-                    "{}{:?} | {}Successfully connected to {} in port {} {}",
-                    color::Fg(color::Cyan),
-                    t.elapsed(),
-                    color::Fg(color::Green),
-                    ip_addr,
-                    port,
-                    color::Fg(color::White)
-                );
-                let mut rng = rand::thread_rng();
-                let bytes_amount = rng.gen_range(0usize..max_packet_size);
-                let rand_string: String = rng
-                    .sample_iter(&Alphanumeric)
-                    .take(bytes_amount)
-                    .map(char::from)
-                    .collect();
+        match TcpStream::connect_timeout(
+            &((ip_addr.to_owned() + ":" + port)
+                .to_socket_addrs()
+                .unwrap()
+                .next()
+                .unwrap()),
+            Duration::from_millis(connect_timeout),
+        ) {
+            Ok(mut stream) =>{
+                stream
+                    .set_write_timeout(Some(Duration::from_millis(write_timeout)))
+                    .expect("WriteTimeout is invalid");
+                stream
+                    .set_read_timeout(Some(Duration::from_millis(read_timeout)))
+                    .expect("ReadTimeout is invalid");
+                stream.set_nodelay(true).expect("set_nodelay call failed");
+                loop {
+                    println!(
+                        "{}{:?} | {}Successfully connected to {} in port {} {}",
+                        color::Fg(color::Cyan),
+                        t.elapsed(),
+                        color::Fg(color::Green),
+                        ip_addr,
+                        port,
+                        color::Fg(color::White)
+                    );
+                    let mut rng = rand::thread_rng();
+                    let bytes_amount = 8190;//rng.gen_range(0usize..max_packet_size);
+                    let rand_string: String = rng
+                        .sample_iter(&Alphanumeric)
+                        .take(bytes_amount)
+                        .map(char::from)
+                        .collect();
 
-                println!(
-                    "{}{:?} |{} Sent {} [bytes] : {}{}, {}awaiting reply...",
-                    color::Fg(color::Cyan),
-                    t.elapsed(),
-                    color::Fg(color::Green),
-                    rand_string.len(),
-                    color::Fg(color::Yellow),
-                    rand_string,
-                    color::Fg(color::White)
-                );
-                let send_time = Instant::now();
-                stream.set_write_timeout(Some(Duration::from_millis(write_timeout))).expect("WriteTimeout is invalid");
-                stream.write(rand_string.as_bytes()).unwrap();
-                let mut data = Vec::<u8>::new();
-                data.resize(bytes_amount, 0);
-                stream.set_read_timeout(Some(Duration::from_millis(read_timeout))).expect("ReadTimeout is invalid");
-                match stream.read_exact(&mut data[0..bytes_amount]) {
-                    Ok(_) => {
-                        if data.as_slice() == rand_string.as_bytes() {
-                            let delta_time = Instant::now().saturating_duration_since(send_time).as_millis();
-                            let bandwidth = (16_000 * rand_string.len() as u128) as f32 / (1_048_576 * delta_time) as f32;
-                            av_bandwidth.add(bandwidth as f64);
-                            println!(
-                                "{}{:?} | {}Reply is ok!",
-                                color::Fg(color::Cyan),
-                                t.elapsed(),
-                                color::Fg(color::Green)
-                            );
-                            println!(
-                                "{}{:?} | {}Bandwidth: {}{:.2} [Mbps]",
-                                color::Fg(color::Cyan),
-                                t.elapsed(),
-                                color::Fg(color::White),
-                                color::Fg(color::Magenta),
-                                bandwidth
-                            );
-                        } else {
+                    /*println!(
+                        "{}{:?} |{} Sent {} [bytes] : {}{}, {}awaiting reply...",
+                        color::Fg(color::Cyan),
+                        t.elapsed(),
+                        color::Fg(color::Green),
+                        rand_string.len(),
+                        color::Fg(color::Yellow),
+                        rand_string,
+                        color::Fg(color::White)
+                    );*/
+                    let send_time = Instant::now();
+
+                    stream.write(rand_string.as_bytes()).unwrap();
+                    let mut data = Vec::<u8>::new();
+                    data.resize(bytes_amount, 0);
+                    match stream.read_exact(&mut data[0..bytes_amount]) {
+                        Ok(_) => {
+                            if data.as_slice() == rand_string.as_bytes() {
+                                let delta_time = Instant::now()
+                                    .saturating_duration_since(send_time)
+                                    .as_millis();
+                                let bandwidth = (8_000 * bytes_amount as u128) as f32
+                                    / (1_048_576 * delta_time) as f32;
+                                av_bandwidth.add(bandwidth as f64);
+                                println!(
+                                    "{}{:?} | {}Reply is ok!",
+                                    color::Fg(color::Cyan),
+                                    t.elapsed(),
+                                    color::Fg(color::Green)
+                                );
+                                println!(
+                                    "{}{:?} | {}Bandwidth: {}{:.2} [Mbps]",
+                                    color::Fg(color::Cyan),
+                                    t.elapsed(),
+                                    color::Fg(color::White),
+                                    color::Fg(color::Magenta),
+                                    bandwidth
+                                );
+                            } else {
+                                error_cnt += 1;
+                                println!(
+                                    "{}{:?} | {} Unexpected reply: {}{:?}",
+                                    color::Fg(color::Cyan),
+                                    t.elapsed(),
+                                    color::Fg(color::Red),
+                                    color::Fg(color::Yellow),
+                                    data
+                                );
+                                break;
+                            }
+                        }
+                        Err(e) => {
                             error_cnt += 1;
                             println!(
-                                "{}{:?} | {} Unexpected reply: {}{:?}",
+                                "{}{:?} | {}Failed to receive data: {}{}",
                                 color::Fg(color::Cyan),
                                 t.elapsed(),
                                 color::Fg(color::Red),
                                 color::Fg(color::Yellow),
-                                data
+                                e
                             );
+                            break;
                         }
                     }
-                    Err(e) => {
-                        error_cnt += 1;
-                        println!(
-                            "{}{:?} | {}Failed to receive data: {}{}",
-                            color::Fg(color::Cyan),
-                            t.elapsed(),
-                            color::Fg(color::Red),
-                            color::Fg(color::Yellow),
-                            e
-                        );
-                    }
+                    println!(
+                        "{}********************GLOBAL INFO**********************",
+                        color::Fg(color::Yellow)
+                    );
+                    println!(
+                        "{}{:?} | {}Average Bandwidth: {}{:.2} [Mbps]",
+                        color::Fg(color::Cyan),
+                        t.elapsed(),
+                        color::Fg(color::White),
+                        color::Fg(color::Magenta),
+                        av_bandwidth.get()
+                    );
+                    println!(
+                        "{}{:?} | {}Error Counter: {}{}",
+                        color::Fg(color::Cyan),
+                        t.elapsed(),
+                        color::Fg(color::White),
+                        color::Fg(color::Red),
+                        error_cnt
+                    );
+                    println!(
+                        "{}*****************************************************",
+                        color::Fg(color::Yellow)
+                    );
+                    thread::sleep(Duration::from_millis(loop_delay));
                 }
-                println!("{}********************GLOBAL INFO**********************",  color::Fg(color::Yellow));
-                println!(
-                    "{}{:?} | {}Average Bandwidth: {}{:.2} [Mbps]",
-                    color::Fg(color::Cyan),
-                    t.elapsed(),
-                    color::Fg(color::White),
-                    color::Fg(color::Magenta),
-                    av_bandwidth.get()
-                );
-                println!(
-                    "{}{:?} | {}Error Counter: {}{}",
-                    color::Fg(color::Cyan),
-                    t.elapsed(),
-                    color::Fg(color::White),
-                    color::Fg(color::Red),
-                    error_cnt
-                );
-                println!("{}*****************************************************",  color::Fg(color::Yellow));
-                match stream.shutdown(Shutdown::Both){
+                match stream.shutdown(Shutdown::Both) {
                     Ok(_) => {}
                     Err(e) => {
                         error_cnt += 1;
@@ -203,7 +235,7 @@ fn main() {
                         );
                     }
                 }
-            }
+            },
             Err(e) => {
                 error_cnt += 1;
                 println!(
@@ -216,6 +248,5 @@ fn main() {
                 );
             }
         }
-        thread::sleep(Duration::from_millis(loop_delay));
     }
 }
