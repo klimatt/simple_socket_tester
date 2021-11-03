@@ -2,7 +2,7 @@
 Generating random packets, sending them to the server and checking the response.
 Was developed for testing sockets on stm32H743zi: [stm32H743ZI-playground](https://github.com/klimatt/stm32H743ZI-playground).
 The server must echo all incoming data.
-Currently, only TCP sockets are supported.
+Currently, only TCP sockets are supported. Can be used with WireShark for deeper debugging. 
 ```sh
 simple_socket_tester 0.1.0
 USAGE:
@@ -23,7 +23,7 @@ OPTIONS:
 ```
 Example command:
 ```sh
- cargo run --release -- -i 192.168.1.10 -p 1234 -m 900 -d 300 -c 200 -r 10 -w 10 -p -n 
+ cargo run --release -- -i 192.168.1.10 -p 1234 -m 900 -d 300 -c 200 -r 10 -w 10 -a -n 
 ```
 Or: 
 ```sh
